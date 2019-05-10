@@ -1,4 +1,4 @@
-import os, psutil, seaborn as sns, numpy as np, pandas as pd, matplotlib.pyplot as plt
+import os, psutil, seaborn as sns, numpy as np, pandas as pd, matplotlib.pyplot as plt, glob, re
 
 #Writing a memory output function
 def mem_stats():
@@ -59,7 +59,7 @@ template = 'nyctaxi/yellow_tripdata_2015-{:02d}.csv'
 #generator of files in the location
 files = (template.format(k) for k in range(1, 4))
 for fname in files:
-    print(fname)
+    print(fname) 
 
 def long_trips(df):
     df['duration'] = (df.tpep_dropoff_datetime - df.tpep_pickup_datetime).dt.seconds
@@ -163,10 +163,30 @@ print('time elapsed: {} ms'.format(round(telp, 3)))
 len(nrg_2k)
 nrg_2k.chunks
 
+#Reading in all load files at once
+files = sorted(glob.glob('Texas/*.hdf5'))
+dsets = [h5py.File(f)['/load'] for f in files]
+#Reshaping as a numpy array to give yearly, daily and 15 minute intervals of power readings
+arrs = [np.array(d).reshape((1, 365, 96)) for d in dsets[1:]]
+#Stacking into 4 years
+arrs_stacked = np.concatenate(arrs, axis = 0)
+#converting to yearly array, with first dimension as year
+da_arrs = da.from_array(arrs_stacked)
+
+#Alternative workflow all in dask with no intermediate NumPy
+da_arrs2 = [da.from_array(d) for d in dsets[1:]]
+da_arrs2_stack = da.stack(da_arrs2)
+da_arrs2_rshp = da.reshape(da_arrs2_stack, (4, 365, 96))
+
+#Working with dask dataframes
+import dask.dataframe as dd
+df = dd.read_csv('WDI.csv')
+
+fil1 = df['Indicator Code'] == 'EN.ATM.PM25.MC.ZS'
+fil2 = df['Region'] == 'East Asia & Pacific'
+
+df1 = df.loc[fil1]
 
 
 
-
-x = pd.read_csv('flightdelays/flightdelays-2016-1.csv')
-
-x.info()
+print(re.search('.ZS', 'pig.ZS'))
