@@ -180,6 +180,7 @@ da_arrs2_rshp = da.reshape(da_arrs2_stack, (4, 365, 96))
 
 #Working with dask dataframes
 import dask.dataframe as dd
+
 df = dd.read_csv('WDI.csv')
 
 #Looking at all indicator filters
@@ -233,3 +234,27 @@ rs2 = rs1.compute()
 rs2.plot.line()
 plt.ylim(0.1, 0.5)
 plt.show()
+
+#Working with dask bags
+import dask.bag as db
+
+files = sorted(glob.glob('sotu/*.txt'))
+speeches = db.read_text(files)
+
+#Basic operations with bags
+speeches.count().compute()
+
+#Taking elements
+el1 = speeches.take(1)
+el2 = el1[0]
+el2[:60]
+
+#Further ops over all the bags
+word = speeches.str.split(' ')
+n_words = word.map(len)
+n_words.mean().compute()
+
+#Filtering by speech content
+spch_lwr = speeches.str.lower()
+health = spch_lwr.filter(lambda s:'health care' in s)
+health.count().compute()
