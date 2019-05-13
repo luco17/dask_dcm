@@ -182,11 +182,54 @@ da_arrs2_rshp = da.reshape(da_arrs2_stack, (4, 365, 96))
 import dask.dataframe as dd
 df = dd.read_csv('WDI.csv')
 
-fil1 = df['Indicator Code'] == 'EN.ATM.PM25.MC.ZS'
+#Looking at all indicator filters
+np.array(df['Indicator Code'].unique())
+fil1 = df['Indicator Code'] == 'SP.POP.0014.TO.ZS'
 fil2 = df['Region'] == 'East Asia & Pacific'
 
-df1 = df.loc[fil1]
+#Filtering
+df1 = df.loc[fil1 & fil2]
 
+#Basic grouping and plotting output
+gp1 = df1.groupby('Year').mean()
+gp2 = gp1.compute()
+gp2['value'].plot.line()
+plt.ylim(0, 100)
+plt.show()
 
+#Big data storage
+#>10TB requires RAID array or clustered computing
+#Timing exercises
+def yng_region(df):
+    fil1 = df['Indicator Code'] == 'SP.POP.0014.TO.ZS'
+    fil2 = df['Year'] ==  2015
+    regions = df.loc[fil1 & fil2].groupby('Region')
+    return regions['value'].mean()
 
-print(re.search('.ZS', 'pig.ZS'))
+t0 = time.time()
+df = pd.read_csv('WDI.csv')
+result = yng_region(df)
+t1 = time.time()
+print((t1 - t0) * 1000)
+
+t0 = time.time()
+df = dd.read_csv('WDI.csv')
+result = yng_region(df)
+t1 = time.time()
+print((t1 - t0) * 1000)
+
+#Reading in the NYC data
+df = dd.read_csv('nyctaxi/*.csv', assume_missing = True)
+df['tip_frac'] = df['tip_amount'] / (df['total_amount'] - df['tip_amount'])
+df['tpep_pickup_datetime'] = dd.to_datetime(df['tpep_pickup_datetime'])
+df['tpep_dropoff_datetime'] = dd.to_datetime(df['tpep_dropoff_datetime'])
+df['hour'] = df['tpep_dropoff_datetime'].dt.hour
+
+#Finding tips by hour
+df1 = df.loc[df['payment_type'] == 1]
+rs1 = df1.groupby('hour')['tip_frac'].mean()
+rs2 = rs1.compute()
+
+rs2.plot.line()
+plt.ylim(0.1, 0.5)
+plt.show()
