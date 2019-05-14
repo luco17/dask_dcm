@@ -258,3 +258,25 @@ n_words.mean().compute()
 spch_lwr = speeches.str.lower()
 health = spch_lwr.filter(lambda s:'health care' in s)
 health.count().compute()
+
+#Working with JSON
+import json
+
+#Reading in as dask bags
+cong_text = db.read_text('congress/bills*.json')
+
+#Converting to JSON
+cong_dicts = cong_text.map(json.loads)
+
+#Extracting elements and reading keys
+ex1 = cong_dicts.take(1)[0]
+ex1.keys()
+
+#Calculating average bill length
+def bill_length(d):
+    curr = pd.to_datetime(d['current_status_date'])
+    intr = pd.to_datetime(d['introduced_date'])
+    return(curr - intr).days
+
+days = cong_dicts.filter(lambda x: x['current_status'] == 'enacted_signed').map(bill_length)
+days.mean().compute()
