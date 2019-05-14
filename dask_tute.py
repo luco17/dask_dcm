@@ -280,3 +280,52 @@ def bill_length(d):
 
 days = cong_dicts.filter(lambda x: x['current_status'] == 'enacted_signed').map(bill_length)
 days.mean().compute()
+
+#Case study
+#Write function to read and clean
+@delayed
+def flt_df(file):
+    df = pd.read_csv(file, parse_dates = ['FL_DATE'])
+    df['WEATHER_DELAY'] = df['WEATHER_DELAY'].replace(0, np.nan)
+    return df
+
+#Read in files sequentially
+files = glob.glob('flightdelays/*.csv')
+dfs = []
+
+for file in files:
+    dfs.append(flt_df(file))
+    flight_delays = dd.from_delayed(dfs)
+
+#Mean weather delay
+flight_delays['WEATHER_DELAY'].mean().compute()
+#Similar function for the weather data
+@delayed
+def wea_df(file):
+    df = pd.read_csv(file, parse_dates = ['Date'])
+    df['PrecipitationIn'] = pd.to_numeric(df['PrecipitationIn'], errors = 'coerce')
+    df['Airport'] = file.split('.')[0]
+    return df
+
+files = glob.glob('weatherdata/*.csv')
+dfs_wea = []
+for file in files:
+    dfs_wea.append(wea_df(file))
+    weather = dd.from_delayed(dfs_wea)
+
+#Top 5 temps across the five cities
+weather.nlargest(5, 'Max TemperatureF').compute()
+
+#GRP and filtering
+fil1 = weather['Events'].str.contains('Snow').fillna(False)
+result = weather.loc[fil1].groupby('Airport')['PrecipitationIn'].sum()
+result.compute()
+
+#Persisting dataframes and measuring performance
+def percent_delayed(df):
+    return (df['WEATHER_DELAY'].count() / len(df)) * 100
+
+ %time percent_delayed(flight_delays).compute()
+#Dramatic speed up from persist call
+fd_pers = flight_delays.persist()
+%time percent_delayed(fd_pers).compute()
